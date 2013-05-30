@@ -21,7 +21,7 @@ PBL_APP_INFO(MY_UUID,
 #define MAX_Y 167
 
 /* Allow up to this many shoots */
-#define MAX_NUM_SHOOTS 1
+#define MAX_NUM_SHOOTS 5
 /* For each shoot, track the list of its x,y coords as GPoints */
 #define MAX_POINTS 60
 typedef struct {
@@ -81,7 +81,7 @@ void handle_tick(AppContextRef ctx, PebbleTickEvent *event) {
   (void)ctx;
 
   /* Select a shoot at random */
-  const int s = 0;
+  const int s = random(num_shoots);
 
   /* Grow it by a random amount (1 to 5 pixels),
    * in a random direction (-45 to 45 degrees) */
@@ -125,13 +125,18 @@ void handle_init(AppContextRef ctx) {
 
   /* By adding it second, it will be drawn after the base garden layer */
 
-  num_shoots = 1;
+  /* Create all shoots.  Later, make shoot initialization also random. */
+  num_shoots = MAX_NUM_SHOOTS;
+
   /* Initialize the shoot starting locations to the bottom of the screen,
      in randomly chosen x locations */
-  shoots[0].pt[0].x = 75;
-  shoots[0].pt[0].y = MAX_Y-1;
+  int s = 0;
+  for (s=0; s<num_shoots; s++) {
+    shoots[s].pt[0].x = random(MAX_X);
+    shoots[s].pt[0].y = MAX_Y-1;
 
-  shoots[0].npts    = 1;
+    shoots[s].npts    = 1;
+  }
 
 }
 
