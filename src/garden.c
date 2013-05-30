@@ -68,6 +68,9 @@ void init_shoots()
     shoots[s].npts    = 1;
   }
 
+  /* Mark the garden layer dirty so it will update */
+  layer_mark_dirty(&garden);
+
 }
 
 
@@ -101,10 +104,7 @@ void handle_tick(AppContextRef ctx, PebbleTickEvent *event) {
 
   /* If the minute is over, reset all shoots to the ground */
   if (event->units_changed == MINUTE_UNIT) {
-    int s;
-    for (s=0; s<num_shoots; s++) {
-      init_shoots();
-    }
+    init_shoots();
   }
 
   /* Select a shoot at random */
@@ -112,7 +112,10 @@ void handle_tick(AppContextRef ctx, PebbleTickEvent *event) {
 
   /* Grow it by a random amount (1 to 5 pixels),
    * in a random direction (-45 to 45 degrees) */
-  const int curpt = shoots[s].npts;
+  int curpt = shoots[s].npts;
+  /* This shouldn't be needed if the above MINUTE_UNIT checked worked;
+   * but add it in here for safety. */
+  if (curpt >= MAX_POINTS) curpt = MAX_POINTS-1;
 
   /* Assumes curpt is at least 1 */
   /* make this random */
