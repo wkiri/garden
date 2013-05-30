@@ -97,6 +97,8 @@ void handle_tick(AppContextRef ctx, PebbleTickEvent *event) {
   (void)event;
   (void)ctx;
 
+  /*********** Update the garden *************/
+
   /* If the minute is over, reset all shoots to the ground */
   if (event->units_changed == MINUTE_UNIT) {
     int s;
@@ -128,6 +130,19 @@ void handle_tick(AppContextRef ctx, PebbleTickEvent *event) {
 
   /* Mark the garden layer dirty so it will update */
   layer_mark_dirty(&garden);
+
+
+  /*********** Update the time *************/
+  static char timeText[] = "00:00:00"; 
+
+  PblTm currentTime;
+
+  get_time(&currentTime);
+  string_format_time(timeText, sizeof(timeText), "%T", &currentTime);
+  text_layer_set_text(&time_layer, timeText);
+
+  layer_mark_dirty(&time_layer.layer);
+
 }
 
 
@@ -146,8 +161,13 @@ void handle_init(AppContextRef ctx) {
   layer_add_child(&window.layer, &garden);
 
   /* Create a text layer to report the time */
-
+  text_layer_init(&time_layer, window.layer.frame);
+  text_layer_set_text_color(      &time_layer, GColorBlack);
+  text_layer_set_background_color(&time_layer, GColorClear);
+  text_layer_set_text_alignment(&time_layer, GTextAlignmentCenter);
+  text_layer_set_font(&time_layer, fonts_get_system_font(FONT_KEY_GOTHIC_28_BOLD));
   /* By adding it second, it will be drawn after the base garden layer */
+  layer_add_child(&window.layer, &time_layer.layer);
 
   /* Create all shoots.  Later, make shoot initialization also random. */
   num_shoots = MAX_NUM_SHOOTS;
