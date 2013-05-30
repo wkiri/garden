@@ -54,6 +54,23 @@ int random(int max)
 }
 
 
+/*
+ * (Re-)start all shoots at ground level (y = MAX_Y-1) 
+ * at random x locations.
+ */
+void init_shoots()
+{
+  int s = 0;
+
+  for (s=0; s<num_shoots; s++) {
+    shoots[s].pt[0].x = random(MAX_X);
+    shoots[s].pt[0].y = MAX_Y-1;
+    shoots[s].npts    = 1;
+  }
+
+}
+
+
 /* 
  * Draw the current garden state.
  */
@@ -80,26 +97,33 @@ void handle_tick(AppContextRef ctx, PebbleTickEvent *event) {
   (void)event;
   (void)ctx;
 
+  /* If the minute is over, reset all shoots to the ground */
+  if (event->units_changed == MINUTE_UNIT) {
+    int s;
+    for (s=0; s<num_shoots; s++) {
+      init_shoots();
+    }
+  }
+
   /* Select a shoot at random */
   const int s = random(num_shoots);
 
   /* Grow it by a random amount (1 to 5 pixels),
    * in a random direction (-45 to 45 degrees) */
-  int curpt = shoots[s].npts;
+  const int curpt = shoots[s].npts;
 
-  /* If the minute is over, reset all shoots to the ground */
-  if (curpt >= MAX_POINTS) {
-    shoots[s].pt[0].x = 100;  /* make this random */
-    shoots[s].pt[0].y = MAX_Y-1;
-    shoots[s].npts    = 1;
-    curpt = 1;
-  }
   /* Assumes curpt is at least 1 */
   /* make this random */
-  int grow_by = random(11) - 5;
-  shoots[s].pt[curpt].x = shoots[s].pt[curpt-1].x + grow_by;
-  grow_by = random(3) + 1;
-  shoots[s].pt[curpt].y = shoots[s].pt[curpt-1].y - grow_by;
+  int grow_by = random(11) - 5; /* -5 to +5 */
+  int new_x = shoots[s].pt[curpt-1].x + grow_by;
+  if      (new_x < 0)     new_x = 0;
+  else if (new_x > MAX_X) new_x = MAX_X;
+  shoots[s].pt[curpt].x = new_x;
+
+  grow_by = random(3) + 1; /* 1 to 3 */
+  int new_y = shoots[s].pt[curpt-1].y - grow_by;
+  if (new_y < 0) new_y = 0;
+  shoots[s].pt[curpt].y = new_y;
   shoots[s].npts++; 
 
   /* Mark the garden layer dirty so it will update */
@@ -130,13 +154,7 @@ void handle_init(AppContextRef ctx) {
 
   /* Initialize the shoot starting locations to the bottom of the screen,
      in randomly chosen x locations */
-  int s = 0;
-  for (s=0; s<num_shoots; s++) {
-    shoots[s].pt[0].x = random(MAX_X);
-    shoots[s].pt[0].y = MAX_Y-1;
-
-    shoots[s].npts    = 1;
-  }
+  init_shoots();
 
 }
 
