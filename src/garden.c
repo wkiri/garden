@@ -92,7 +92,6 @@ void display_garden_update_callback(Layer *me, GContext* ctx) {
   for (s=0; s<num_shoots; s++) {
     /* Create the path, using the spine and expanding it to left and right */
     npts = shoots[s].npts;
-    shoot_info.num_points = npts * 2; /* up and back down */
     for (i=0; i<npts; i++) { /* going up */
       /* Scale the width by the height of the shoot */
       int shoot_width = 10 - (i*10.0)/npts + 1;
@@ -105,6 +104,7 @@ void display_garden_update_callback(Layer *me, GContext* ctx) {
       shoot_path_points[npts + i] = shoots[s].pt[npts-1-i];
       shoot_path_points[npts + i].x += shoot_width;
     }
+    shoot_info.num_points = npts * 2; /* up and back down */
     shoot_info.points = shoot_path_points;
 
     /* Set it up */
@@ -145,7 +145,10 @@ void handle_tick(AppContextRef ctx, PebbleTickEvent *event) {
   int curpt = shoots[s].npts;
   /* This shouldn't be needed if the above MINUTE_UNIT checked worked;
    * but add it in here for safety. */
-  if (curpt >= MAX_POINTS) curpt = MAX_POINTS-1;
+  if (curpt >= MAX_POINTS) {
+    curpt = MAX_POINTS-1;
+    shoots[s].npts--;  /* compensate for later ++ */
+  }
 
   /* Assumes curpt is at least 1 */
   /* make this random */
