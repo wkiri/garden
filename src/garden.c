@@ -133,7 +133,7 @@ void handle_tick(AppContextRef ctx, PebbleTickEvent *event) {
   /*********** Update the garden *************/
 
   /* If the minute is over, reset all shoots to the ground */
-  if (event->units_changed == MINUTE_UNIT) {
+  if (event->units_changed & MINUTE_UNIT) {
     init_shoots();
   }
 
