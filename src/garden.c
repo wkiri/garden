@@ -21,11 +21,11 @@ PBL_APP_INFO(MY_UUID,
 #define MAX_Y 167
 
 /* Allow up to this many shoots */
-#define MAX_NUM_SHOOTS 5
+#define MAX_NUM_SHOOTS 1
 /* For each shoot, track the list of its x,y coords as GPoints */
 #define MAX_POINTS 60
 typedef struct {
-  GPoint pt[MAX_POINTS];
+  GPoint pt[MAX_POINTS]; /* spine of the shoot */
   int    npts;
 } Shoot;
 Shoot shoots[MAX_NUM_SHOOTS];
@@ -34,6 +34,9 @@ Window     window;
 TextLayer  time_layer;
 Layer      garden;
 static int num_shoots = 0;
+
+/* We only need one of these at a time */
+static GPoint shoot_path_points[MAX_POINTS*2];
 
 /* 
  * Generate a random number from 0 to max-1, 
@@ -79,14 +82,41 @@ void init_shoots()
  */
 void display_garden_update_callback(Layer *me, GContext* ctx) {
   (void)me;
-  int s, i;
+  int s, i, npts;
+  GPath     shoot;
+  GPathInfo shoot_info;
 
   /* Set color to black and draw all shoots */
   graphics_context_set_stroke_color(ctx, GColorBlack);
 
   for (s=0; s<num_shoots; s++) {
-    for (i=1; i<shoots[s].npts; i++)
+    /* Create the path, using the spine and expanding it to left and right */
+    npts = shoots[s].npts;
+    shoot_info.num_points = npts * 2; /* up and back down */
+    for (i=0; i<npts; i++) { /* going up */
+      /* Scale the width by the height of the shoot */
+      int shoot_width = 10 - (i*10.0)/npts + 1;
+      shoot_path_points[i] = shoots[s].pt[i];
+      shoot_path_points[i].x -= shoot_width;
+    }
+    for (i=0; i<npts; i++) { /* going down */
+      /* Scale the width by the height of the shoot */
+      int shoot_width = 10 - ((npts-1-i)*10.0)/npts + 1;
+      shoot_path_points[npts + i] = shoots[s].pt[npts-1-i];
+      shoot_path_points[npts + i].x += shoot_width;
+    }
+    shoot_info.points = shoot_path_points;
+
+    /* Set it up */
+    gpath_init(&shoot, &shoot_info);
+
+    /* Draw the shoot */
+    graphics_context_set_fill_color(ctx, GColorBlack);
+    gpath_draw_filled(ctx, &shoot);
+
+    /*for (i=1; i<shoots[s].npts; i++)
       graphics_draw_line(ctx, shoots[s].pt[i-1], shoots[s].pt[i]);
+    */
   }
 
 }
