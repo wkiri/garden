@@ -21,9 +21,14 @@ PBL_APP_INFO(MY_UUID,
 #define MAX_Y 167
 
 /* Allow up to this many shoots */
-#define MAX_NUM_SHOOTS 1
+#define MAX_NUM_SHOOTS 5
 /* For each shoot, track the list of its x,y coords as GPoints */
 #define MAX_POINTS 60
+/* Max allowed width of a shoot */
+#define MAX_WIDTH 16
+/* Number of growth units per tick (second) */
+#define NUM_GROW_PER_TICK 6
+
 typedef struct {
   GPoint pt[MAX_POINTS]; /* spine of the shoot */
   int    npts;
@@ -65,11 +70,20 @@ void init_shoots()
 {
   int s = 0;
 
+  /*
   for (s=0; s<num_shoots; s++) {
     shoots[s].pt[0].x = random(MAX_X);
     shoots[s].pt[0].y = MAX_Y-1;
     shoots[s].npts    = 1;
   }
+  */
+  /* Only set up the first shoot */
+  /* Ensure that the x coordinate isn't too close to an edge */
+  shoots[s].pt[0].x = random(MAX_X - MAX_WIDTH*2) + MAX_WIDTH;
+  shoots[s].pt[0].y = MAX_Y-1;
+  shoots[s].npts    = 1;
+
+  num_shoots = 1;
 
   /* Mark the garden layer dirty so it will update */
   layer_mark_dirty(&garden);
@@ -85,6 +99,7 @@ void display_garden_update_callback(Layer *me, GContext* ctx) {
   int s, i, npts;
   GPath     shoot;
   GPathInfo shoot_info;
+  const int half_width = MAX_WIDTH/2;
 
   /* Set color to black and draw all shoots */
   graphics_context_set_stroke_color(ctx, GColorBlack);
@@ -94,13 +109,13 @@ void display_garden_update_callback(Layer *me, GContext* ctx) {
     npts = shoots[s].npts;
     for (i=0; i<npts; i++) { /* going up */
       /* Scale the width by the height of the shoot */
-      int shoot_width = 10 - (i*10.0)/npts + 1;
+      int shoot_width = half_width - (i*half_width*1.0)/npts + 2;
       shoot_path_points[i] = shoots[s].pt[i];
       shoot_path_points[i].x -= shoot_width;
     }
     for (i=0; i<npts; i++) { /* going down */
       /* Scale the width by the height of the shoot */
-      int shoot_width = 10 - ((npts-1-i)*10.0)/npts + 1;
+      int shoot_width = half_width - ((npts-1-i)*half_width*1.0)/npts + 2;
       shoot_path_points[npts + i] = shoots[s].pt[npts-1-i];
       shoot_path_points[npts + i].x += shoot_width;
     }
@@ -114,9 +129,6 @@ void display_garden_update_callback(Layer *me, GContext* ctx) {
     graphics_context_set_fill_color(ctx, GColorBlack);
     gpath_draw_filled(ctx, &shoot);
 
-    /*for (i=1; i<shoots[s].npts; i++)
-      graphics_draw_line(ctx, shoots[s].pt[i-1], shoots[s].pt[i]);
-    */
   }
 
 }
@@ -129,6 +141,7 @@ void display_garden_update_callback(Layer *me, GContext* ctx) {
 void handle_tick(AppContextRef ctx, PebbleTickEvent *event) {
   (void)event;
   (void)ctx;
+  int i;
 
   /*********** Update the garden *************/
 
@@ -137,32 +150,46 @@ void handle_tick(AppContextRef ctx, PebbleTickEvent *event) {
     init_shoots();
   }
 
-  /* Select a shoot at random */
-  const int s = random(num_shoots);
+  /* Grow multiple units per tick */
+  for (i=0; i<NUM_GROW_PER_TICK; i++) {
+    /* Select a shoot at random */
+    int s = random(MAX_NUM_SHOOTS);
+    /* If this shoot doesn't exist yet, create it as a branch from shoot 0 */
+    if (s >= num_shoots) {
+      s = num_shoots; /* Make it the next shoot */
 
-  /* Grow it by a random amount (1 to 5 pixels),
-   * in a random direction (-45 to 45 degrees) */
-  int curpt = shoots[s].npts;
-  /* This shouldn't be needed if the above MINUTE_UNIT checked worked;
-   * but add it in here for safety. */
-  if (curpt >= MAX_POINTS) {
-    curpt = MAX_POINTS-1;
-    shoots[s].npts--;  /* compensate for later ++ */
+      int branch_pt = random(shoots[0].npts);
+      shoots[s].pt[0].x = shoots[0].pt[branch_pt].x;
+      shoots[s].pt[0].y = shoots[0].pt[branch_pt].y;
+      shoots[s].npts    = 1;
+
+      num_shoots++;
+    }
+
+    /* Grow it by a random amount (1 to 5 pixels),
+     * in a random direction (-45 to 45 degrees) */
+    int curpt = shoots[s].npts;
+    /* This shouldn't be needed if the above MINUTE_UNIT checked worked;
+     * but add it in here for safety. */
+    if (curpt >= MAX_POINTS) {
+      curpt = MAX_POINTS-1;
+      shoots[s].npts--;  /* compensate for later ++ */
+    }
+
+    /* Assumes curpt is at least 1 */
+    /* make this random */
+    int grow_by = random(11) - 5; /* -5 to +5 */
+    int new_x = shoots[s].pt[curpt-1].x + grow_by;
+    if      (new_x < 0)     new_x = 0;
+    else if (new_x > MAX_X) new_x = MAX_X;
+    shoots[s].pt[curpt].x = new_x;
+
+    grow_by = random(3) + 1; /* 1 to 3 */
+    int new_y = shoots[s].pt[curpt-1].y - grow_by;
+    if (new_y < 0) new_y = 0;
+    shoots[s].pt[curpt].y = new_y;
+    shoots[s].npts++; 
   }
-
-  /* Assumes curpt is at least 1 */
-  /* make this random */
-  int grow_by = random(11) - 5; /* -5 to +5 */
-  int new_x = shoots[s].pt[curpt-1].x + grow_by;
-  if      (new_x < 0)     new_x = 0;
-  else if (new_x > MAX_X) new_x = MAX_X;
-  shoots[s].pt[curpt].x = new_x;
-
-  grow_by = random(3) + 1; /* 1 to 3 */
-  int new_y = shoots[s].pt[curpt-1].y - grow_by;
-  if (new_y < 0) new_y = 0;
-  shoots[s].pt[curpt].y = new_y;
-  shoots[s].npts++; 
 
   /* Mark the garden layer dirty so it will update */
   layer_mark_dirty(&garden);
@@ -205,11 +232,8 @@ void handle_init(AppContextRef ctx) {
   /* By adding it second, it will be drawn after the base garden layer */
   layer_add_child(&window.layer, &time_layer.layer);
 
-  /* Create all shoots.  Later, make shoot initialization also random. */
-  num_shoots = MAX_NUM_SHOOTS;
-
-  /* Initialize the shoot starting locations to the bottom of the screen,
-     in randomly chosen x locations */
+  /* Initialize the first shoot's starting location to the bottom of the screen,
+     in a randomly chosen x location */
   init_shoots();
 
 }
